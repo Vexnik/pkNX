@@ -1,0 +1,48 @@
+name: Deploy web editor
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'pkNX.Web/**'
+      - '.github/workflows/web.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build the web app
+        run: dotnet publish pkNX.Web/pkNX.Web.csproj -c Release -o release
+
+      - name: Fix the page address and turn off Jekyll
+        run: |
+          sed -i 's|<base href="/" />|<base href="/pkNX/" />|' release/wwwroot/index.html
+          touch release/wwwroot/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: release/wwwroot
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
