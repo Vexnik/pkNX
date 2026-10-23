@@ -11,22 +11,9 @@
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
 
-        body {
-            margin: 0;
-            padding: 1rem;
-            line-height: 1.5;
-        }
-
-        main {
-            width: 100%;
-            max-width: 42rem;
-            margin-inline: auto;
-        }
-
-        h1 {
-            line-height: 1.2;
-            overflow-wrap: anywhere;
-        }
+        body { margin: 0; padding: 1rem; line-height: 1.5; }
+        main { width: 100%; max-width: 42rem; margin-inline: auto; }
+        h1 { line-height: 1.2; overflow-wrap: anywhere; }
 
         label {
             display: block;
@@ -34,9 +21,7 @@
             font-weight: 600;
         }
 
-        select,
-        input[type="number"],
-        input[type="search"] {
+        select, input[type="number"], input[type="search"] {
             box-sizing: border-box;
             display: block;
             width: 100%;
@@ -47,44 +32,63 @@
             font: inherit;
         }
 
-        input[type="search"] {
-            margin-bottom: 0.75rem;
-        }
+        input[type="search"] { margin-bottom: 0.75rem; }
 
-        /* Keep the native file control visibly available on mobile browsers. */
         .file-picker {
             display: block;
-            visibility: visible;
             margin: 1rem 0;
             padding: 1rem;
             border: 2px solid #888;
             border-radius: 0.75rem;
         }
 
-        .file-picker h2 {
-            margin-top: 0;
-        }
+        .file-picker h2 { margin-top: 0; }
 
-        .file-picker input[type="file"] {
-            display: block !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: static !important;
+        /* The real file input overlays the visible prompt. Taps go to the
+           native input itself, preserving iOS Safari's user-gesture behavior. */
+        .file-picker-control {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
             width: 100%;
-            max-width: 100%;
-            min-height: 48px;
-            margin: 0.5rem 0;
-            color: inherit;
-            font: inherit;
+            min-height: 54px;
+            padding: 0.75rem;
+            border: 2px solid #777;
+            border-radius: 0.6rem;
+            background: #e8e8e8;
+            color: #111;
+            font-weight: 700;
+            text-align: center;
+            overflow-wrap: anywhere;
         }
 
-        .hint {
-            font-size: 0.9rem;
-            opacity: 0.8;
+        .file-picker-button-text { pointer-events: none; }
+
+        .file-picker-control input.file-input-overlay {
+            position: absolute !important;
+            inset: 0 !important;
+            z-index: 2;
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 54px;
+            margin: 0 !important;
+            padding: 0 !important;
+            opacity: 0 !important;
+            visibility: visible !important;
+            cursor: pointer;
         }
 
-        .team-list,
-        .pokemon-list {
+        .file-picker-control:focus-within {
+            outline: 3px solid #4677d5;
+            outline-offset: 3px;
+        }
+
+        .hint { font-size: 0.9rem; opacity: 0.8; }
+
+        .team-list, .pokemon-list {
             display: grid;
             gap: 0.5rem;
             margin: 0.75rem 0;
@@ -106,9 +110,7 @@
             font-weight: 700;
         }
 
-        hr {
-            margin: 1.5rem 0;
-        }
+        hr { margin: 1.5rem 0; }
 
         .editor {
             margin-top: 1rem;
@@ -117,9 +119,7 @@
             border-radius: 0.75rem;
         }
 
-        p[role="status"] {
-            overflow-wrap: anywhere;
-        }
+        p[role="status"] { overflow-wrap: anywhere; }
     </style>
 </head>
 <body>
