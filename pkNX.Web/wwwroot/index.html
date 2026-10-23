@@ -3,37 +3,148 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>pkNX Web</title>
+    <title>Galar Reforged — Trainer Editor</title>
     <base href="/" />
     <style>
-        :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-        body { margin: 0; padding: 1rem; line-height: 1.5; }
-        main { max-width: 38rem; margin-inline: auto; }
-        input[type=file] { font-size: 1rem; padding: 0.5rem 0; }
-        input[type=search] { font-size: 1rem; width: 100%; padding: 0.5rem; box-sizing: border-box; margin-bottom: 0.5rem; }
-        details { margin: 0.5rem 0; }
-        summary { padding: 0.4rem 0; }
-        .error { color: light-dark(#b3261e, #f2b8b5); }
+        :root {
+            color-scheme: light dark;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 1rem;
+            line-height: 1.5;
+        }
+
+        main {
+            width: 100%;
+            max-width: 42rem;
+            margin-inline: auto;
+        }
+
+        h1 {
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+
+        label {
+            display: block;
+            margin-top: 0.8rem;
+            font-weight: 600;
+        }
+
+        select,
+        input[type="number"],
+        input[type="search"] {
+            box-sizing: border-box;
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            min-height: 44px;
+            padding: 0.55rem;
+            margin: 0.25rem 0 0.6rem;
+            font: inherit;
+        }
+
+        input[type="search"] {
+            margin-bottom: 0.75rem;
+        }
+
+        /* Keep the native file control visibly available on mobile browsers. */
+        .file-picker {
+            display: block;
+            visibility: visible;
+            margin: 1rem 0;
+            padding: 1rem;
+            border: 2px solid #888;
+            border-radius: 0.75rem;
+        }
+
+        .file-picker h2 {
+            margin-top: 0;
+        }
+
+        .file-picker input[type="file"] {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: static !important;
+            width: 100%;
+            max-width: 100%;
+            min-height: 48px;
+            margin: 0.5rem 0;
+            color: inherit;
+            font: inherit;
+        }
+
+        .hint {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .team-list,
+        .pokemon-list {
+            display: grid;
+            gap: 0.5rem;
+            margin: 0.75rem 0;
+        }
+
+        button {
+            box-sizing: border-box;
+            min-height: 44px;
+            padding: 0.65rem 0.8rem;
+            font: inherit;
+            text-align: left;
+            overflow-wrap: anywhere;
+            cursor: pointer;
+        }
+
+        .primary-button {
+            width: 100%;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        hr {
+            margin: 1.5rem 0;
+        }
+
+        .editor {
+            margin-top: 1rem;
+            padding: 1rem;
+            border: 1px solid #888;
+            border-radius: 0.75rem;
+        }
+
+        p[role="status"] {
+            overflow-wrap: anywhere;
+        }
     </style>
 </head>
 <body>
-    <div id="app">Loading…</div>
+    <div id="app">Loading Galar Reforged…</div>
+
     <script src="_framework/blazor.webassembly.js"></script>
     <script>
         window.downloadBase64File = (filename, base64, contentType) => {
             const binary = atob(base64);
             const bytes = new Uint8Array(binary.length);
+
             for (let i = 0; i < binary.length; i++) {
                 bytes[i] = binary.charCodeAt(i);
             }
+
             const blob = new Blob([bytes], { type: contentType });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
+
             link.href = url;
             link.download = filename;
             document.body.appendChild(link);
             link.click();
             link.remove();
+
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         };
     </script>
