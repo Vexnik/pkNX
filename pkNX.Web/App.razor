@@ -1,75 +1,214 @@
+
+@using System.IO
 @using System.IO.Compression
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
 @using pkNX.Structures
+@inject IJSRuntime JS
 
 <main>
-    <h1>Trainer editor, step 2</h1>
-    <p>Choose the team files from your dump: select the files themselves, or one .zip of that folder. Nothing is uploaded.</p>
+    <h1>Galar Reforged — Trainer Editor</h1>
+    <p>
+        Import trainer team files or a ZIP containing them.
+        Files are processed locally in this browser.
+    </p>
 
-    <InputFile OnChange="OnFilesChosen" multiple />
+    <label for="edition">Target game</label>
+    <select id="edition" @bind="edition">
+        <option value="Sword">Pokémon Sword</option>
+        <option value="Shield">Pokémon Shield</option>
+    </select>
+
+    <p>
+        <InputFile OnChange="OnFilesChosen" multiple />
+    </p>
 
     @if (message is not null)
     {
-        <p class="error">@message</p>
+        <p role="status">@message</p>
     }
 
     @if (teams.Count > 0)
     {
-        <p>@teams.Count teams loaded.</p>
-        <input type="search" placeholder="Filter by Pokémon name" @bind="filter" @bind:event="oninput" />
+        <h2>Trainer teams (@teams.Count)</h2>
 
-        @foreach (var t in Visible)
+        <input type="search"
+               placeholder="Filter trainer or Pokémon"
+               @bind="filter"
+               @bind:event="oninput" />
+
+        <div>
+            @foreach (var t in VisibleTeams)
+            {
+                var index = teams.IndexOf(t);
+                <button @key="t"
+                        @onclick="() => SelectTeam(index)">
+                    @(selectedTeamIndex == index ? "▶ " : "")
+                    @t.Name (@t.Team.Length Pokémon)
+                </button>
+            }
+        </div>
+
+        @if (SelectedTeam is not null)
         {
-            <details>
-                <summary>@t.Name (@t.Team.Length Pokémon)</summary>
-                <ul>
-                    @foreach (var p in t.Team)
-                    {
-                        <li>@SpeciesName(p.Species), level @p.Level. Moves: @p.Move1, @p.Move2, @p.Move3, @p.Move4. Item: @p.HeldItem.</li>
-                    }
-                </ul>
-            </details>
+            <h2>Selected trainer</h2>
+            <p>@SelectedTeam.Name</p>
+
+            <div>
+                @for (int i = 0; i < SelectedTeam.Team.Length; i++)
+                {
+                    var pokemonIndex = i;
+                    var p = SelectedTeam.Team[i];
+
+                    <button @key="pokemonIndex"
+                            @onclick="() => SelectPokemon(pokemonIndex)">
+                        @(selectedPokemonIndex == pokemonIndex ? "▶ " : "")
+                        @SpeciesName(p.Species) — Lv. @p.Level
+                    </button>
+                }
+            </div>
         }
+
+        @if (SelectedPokemon is not null)
+        {
+            <h2>Edit Pokémon</h2>
+
+            <p>
+                Current species: <strong>@SpeciesName(SelectedPokemon.Species)</strong>
+            </p>
+
+            <label>Species ID</label>
+            <input type="number" min="0" max="65535"
+                   @bind="SelectedPokemon.Species" />
+
+            <label>Level</label>
+            <input type="number" min="1" max="100"
+                   @bind="SelectedPokemon.Level" />
+
+            <label>Held item ID (0 means no item)</label>
+            <input type="number" min="0" max="65535"
+                   @bind="SelectedPokemon.HeldItem" />
+
+            <h3>Move IDs</h3>
+            <label>Move 1</label>
+            <input type="number" min="0" max="65535"
+                   @bind="SelectedPokemon.Move1" />
+
+            <label>Move 2</label>
+            <input type="number" min="0" max="65535"
+                   @bind="SelectedPokemon.Move2" />
+
+            <label>Move 3</label>
+            <input type="number" min="0" max="65535"
+                   @bind="SelectedPokemon.Move3" />
+
+            <label>Move 4</label>
+            <input type="number" min="0" max="65535"
+                   @bind="SelectedPokemon.Move4" />
+
+            <p>
+                Changes apply to the selected Pokémon in memory.
+                Other Pokémon fields are preserved when the team is written.
+            </p>
+        }
+
+        <hr />
+
+        <h2>Export patch</h2>
+        <p>
+            Only changed team files are included. The ZIP contains the
+            selected game's Atmosphère mod-folder path.
+        </p>
+
+        <button @onclick="ExportPatch">Export changed teams</button>
     }
 </main>
 
 @code {
-    private record TeamFile(string Name, TrainerPoke8[] Team);
+    private sealed class TeamFile
+    {
+        public string Name { get; }
+        public TrainerPoke8[] Team { get; }
+        public byte[] OriginalData { get; }
+
+        public TeamFile(string name, byte[] originalData, TrainerPoke8[] team)
+        {
+            Name = name;
+            OriginalData = originalData;
+            Team = team;
+        }
+    }
 
     private readonly List<TeamFile> teams = new();
     private string? message;
     private string filter = "";
+    private string edition = "Sword";
+    private int selectedTeamIndex = -1;
+    private int selectedPokemonIndex = 0;
 
-    private IEnumerable<TeamFile> Visible => string.IsNullOrWhiteSpace(filter)
-        ? teams
-        : teams.Where(t => t.Team.Any(p => SpeciesName(p.Species).Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase)));
+    private TeamFile? SelectedTeam =>
+        selectedTeamIndex >= 0 && selectedTeamIndex < teams.Count
+            ? teams[selectedTeamIndex]
+            : null;
+
+    private TrainerPoke8? SelectedPokemon =>
+        SelectedTeam is not null &&
+        selectedPokemonIndex >= 0 &&
+        selectedPokemonIndex < SelectedTeam.Team.Length
+            ? SelectedTeam.Team[selectedPokemonIndex]
+            : null;
+
+    private IEnumerable<TeamFile> VisibleTeams =>
+        string.IsNullOrWhiteSpace(filter)
+            ? teams
+            : teams.Where(t =>
+                t.Name.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                t.Team.Any(p =>
+                    SpeciesName(p.Species).Contains(
+                        filter.Trim(), StringComparison.OrdinalIgnoreCase)));
 
     private static string SpeciesName(int id) => ((Species)id).ToString();
+
+    private void SelectTeam(int index)
+    {
+        selectedTeamIndex = index;
+        selectedPokemonIndex = 0;
+    }
+
+    private void SelectPokemon(int index)
+    {
+        selectedPokemonIndex = index;
+    }
 
     private async Task OnFilesChosen(InputFileChangeEventArgs e)
     {
         teams.Clear();
+        selectedTeamIndex = -1;
+        selectedPokemonIndex = 0;
         message = null;
         int skipped = 0;
+
         try
         {
             var raw = new List<(string Name, byte[] Data)>();
+
             foreach (var f in e.GetMultipleFiles(2000))
             {
-                await using var s = f.OpenReadStream(300_000_000);
-                var ms = new MemoryStream();
-                await s.CopyToAsync(ms);
+                await using var stream = f.OpenReadStream(300_000_000);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
 
                 if (f.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     ms.Position = 0;
-                    using var zip = new ZipArchive(ms);
+                    using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+
                     foreach (var entry in zip.Entries.Where(z => z.Length > 0))
                     {
-                        using var es = entry.Open();
-                        var em = new MemoryStream();
-                        await es.CopyToAsync(em);
-                        raw.Add((entry.FullName, em.ToArray()));
+                        using var entryStream = entry.Open();
+                        using var entryMemory = new MemoryStream();
+                        await entryStream.CopyToAsync(entryMemory);
+                        raw.Add((entry.FullName, entryMemory.ToArray()));
                     }
                 }
                 else
@@ -78,22 +217,92 @@
                 }
             }
 
-            foreach (var (name, data) in raw.OrderBy(z => z.Name, StringComparer.Ordinal))
+            foreach (var (name, data) in raw.OrderBy(
+                z => z.Name, StringComparer.Ordinal))
             {
                 if (data.Length == 0 || data.Length % TrainerPoke8.SIZE != 0)
                 {
                     skipped++;
                     continue;
                 }
-                teams.Add(new TeamFile(name, TrainerPoke8.ReadTeam(data, null!)));
+
+                var team = TrainerPoke8.ReadTeam(data, null!);
+                teams.Add(new TeamFile(name, data, team));
+            }
+
+            if (teams.Count > 0)
+            {
+                selectedTeamIndex = 0;
+                message = $"Loaded {teams.Count} team file(s).";
+            }
+            else
+            {
+                message = "No valid team files were found. Choose trainer_poke files or a ZIP containing them.";
             }
 
             if (skipped > 0)
-                message = $"{skipped} file(s) were skipped because they are not team files.";
+                message += $" Skipped {skipped} file(s) that did not match the expected record size.";
         }
         catch (Exception ex)
         {
-            message = "Could not read the files: " + ex.Message;
+            message = "Could not read the selected files: " + ex.Message;
+        }
+    }
+
+    private async Task ExportPatch()
+    {
+        message = null;
+
+        try
+        {
+            string titleId = edition == "Shield"
+                ? "01008DB008C2C000"
+                : "0100ABF008968000";
+
+            var changed = new List<(string Name, byte[] Data)>();
+
+            foreach (var t in teams)
+            {
+                var writableTeam = t.Team.Cast<TrainerPoke>().ToList();
+                byte[] output = TrainerPoke8.WriteTeam(writableTeam, null!);
+
+                if (!output.SequenceEqual(t.OriginalData))
+                    changed.Add((Path.GetFileName(t.Name), output));
+            }
+
+            if (changed.Count == 0)
+            {
+                message = "No changes detected. Edit a Pokémon before exporting.";
+                return;
+            }
+
+            using var outputMemory = new MemoryStream();
+
+            using (var zip = new ZipArchive(
+                outputMemory, ZipArchiveMode.Create, leaveOpen: true))
+            {
+                foreach (var file in changed)
+                {
+                    string entryName =
+                        $"atmosphere/contents/{titleId}/romfs/bin/trainer/trainer_poke/{file.Name}";
+
+                    var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
+                    await using var entryStream = entry.Open();
+                    await entryStream.WriteAsync(file.Data);
+                }
+            }
+
+            string base64 = Convert.ToBase64String(outputMemory.ToArray());
+            string filename = $"galar-reforged-{edition.ToLowerInvariant()}-patch.zip";
+
+            await JS.InvokeVoidAsync(
+                "downloadBase64File", filename, base64, "application/zip");
+
+            message = $"Export prepared with {changed.Count} changed team file(s).";
+        }
+        catch (Exception ex)
+        {
+            message = "Export failed: " + ex.Message;
         }
     }
 }
