@@ -1,33 +1,99 @@
+@using System.IO.Compression
 @using Microsoft.AspNetCore.Components.Forms
+@using pkNX.Structures
 
 <main>
-    <h1>Trainer editor, step 1</h1>
-    <p>Choose the trainer files from your dump. They are read in this browser and are never uploaded.</p>
+    <h1>Trainer editor, step 2</h1>
+    <p>Choose the team files from your dump: select the files themselves, or one .zip of that folder. Nothing is uploaded.</p>
 
     <InputFile OnChange="OnFilesChosen" multiple />
 
-    @if (files.Count == 0)
+    @if (message is not null)
     {
-        <p class="empty">No files chosen yet.</p>
+        <p class="error">@message</p>
     }
-    else
+
+    @if (teams.Count > 0)
     {
-        <p>@files.Count file(s) chosen:</p>
-        <ul>
-            @foreach (var f in files)
-            {
-                <li>@f.Name (@f.Size bytes)</li>
-            }
-        </ul>
+        <p>@teams.Count teams loaded.</p>
+        <input type="search" placeholder="Filter by Pokémon name" @bind="filter" @bind:event="oninput" />
+
+        @foreach (var t in Visible)
+        {
+            <details>
+                <summary>@t.Name (@t.Team.Length Pokémon)</summary>
+                <ul>
+                    @foreach (var p in t.Team)
+                    {
+                        <li>@SpeciesName(p.Species), level @p.Level. Moves: @p.Move1, @p.Move2, @p.Move3, @p.Move4. Item: @p.HeldItem.</li>
+                    }
+                </ul>
+            </details>
+        }
     }
 </main>
 
 @code {
-    private readonly List<IBrowserFile> files = new();
+    private record TeamFile(string Name, TrainerPoke8[] Team);
 
-    private void OnFilesChosen(InputFileChangeEventArgs e)
+    private readonly List<TeamFile> teams = new();
+    private string? message;
+    private string filter = "";
+
+    private IEnumerable<TeamFile> Visible => string.IsNullOrWhiteSpace(filter)
+        ? teams
+        : teams.Where(t => t.Team.Any(p => SpeciesName(p.Species).Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase)));
+
+    private static string SpeciesName(int id) => ((Species)id).ToString();
+
+    private async Task OnFilesChosen(InputFileChangeEventArgs e)
     {
-        files.Clear();
-        files.AddRange(e.GetMultipleFiles(500));
+        teams.Clear();
+        message = null;
+        int skipped = 0;
+        try
+        {
+            var raw = new List<(string Name, byte[] Data)>();
+            foreach (var f in e.GetMultipleFiles(2000))
+            {
+                await using var s = f.OpenReadStream(300_000_000);
+                var ms = new MemoryStream();
+                await s.CopyToAsync(ms);
+
+                if (f.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    ms.Position = 0;
+                    using var zip = new ZipArchive(ms);
+                    foreach (var entry in zip.Entries.Where(z => z.Length > 0))
+                    {
+                        using var es = entry.Open();
+                        var em = new MemoryStream();
+                        await es.CopyToAsync(em);
+                        raw.Add((entry.FullName, em.ToArray()));
+                    }
+                }
+                else
+                {
+                    raw.Add((f.Name, ms.ToArray()));
+                }
+            }
+
+            foreach (var (name, data) in raw.OrderBy(z => z.Name, StringComparer.Ordinal))
+            {
+                if (data.Length == 0 || data.Length % TrainerPoke8.SIZE != 0)
+                {
+                    skipped++;
+                    continue;
+                }
+                teams.Add(new TeamFile(name, TrainerPoke8.ReadTeam(data, null!)));
+            }
+
+            if (skipped > 0)
+                message = $"{skipped} file(s) were skipped because they are not team files.";
+        }
+        catch (Exception ex)
+        {
+            message = "Could not read the files: " + ex.Message;
+        }
     }
 }
