@@ -21,8 +21,17 @@
     <section class="file-picker" aria-labelledby="file-picker-heading">
         <h2 id="file-picker-heading">Choose trainer files</h2>
         <p>Select individual trainer team files or a ZIP containing them.</p>
-        <InputFile id="trainer-files" OnChange="OnFilesChosen" multiple />
-        <p class="hint">On a tablet, tap the file-selection control above to browse your files.</p>
+
+        <div class="file-picker-control">
+            <span class="file-picker-button-text">Tap here to choose files</span>
+            <InputFile id="trainer-files"
+                       class="file-input-overlay"
+                       aria-label="Choose trainer files"
+                       OnChange="OnFilesChosen"
+                       multiple />
+        </div>
+
+        <p class="hint">Choose files stored on your iPhone or in the Files app.</p>
     </section>
 
     @if (message is not null)
@@ -191,15 +200,6 @@
                     foreach (var entry in zip.Entries.Where(z =>
                                  z.Length > 0 && !string.IsNullOrEmpty(z.Name)))
                     {
-                        // Prefer files from the known trainer_poke folder when
-                        // the ZIP contains a full extracted game directory.
-                        var normalizedPath = entry.FullName.Replace('\\', '/');
-                        bool looksLikeTrainerFile =
-                            normalizedPath.Contains("/trainer_poke/", StringComparison.OrdinalIgnoreCase) ||
-                            normalizedPath.StartsWith("trainer_poke/", StringComparison.OrdinalIgnoreCase);
-
-                        // Keep other entries available too: some archives contain
-                        // only the selected trainer files without their folder path.
                         using var entryStream = entry.Open();
                         using var entryMemory = new MemoryStream();
                         await entryStream.CopyToAsync(entryMemory);
