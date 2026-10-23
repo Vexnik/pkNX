@@ -1,4 +1,3 @@
-
 @using System.IO
 @using System.IO.Compression
 @using Microsoft.AspNetCore.Components.Forms
@@ -19,9 +18,12 @@
         <option value="Shield">Pokémon Shield</option>
     </select>
 
-    <p>
-        <InputFile OnChange="OnFilesChosen" multiple />
-    </p>
+    <section class="file-picker" aria-labelledby="file-picker-heading">
+        <h2 id="file-picker-heading">Choose trainer files</h2>
+        <p>Select individual trainer team files or a ZIP containing them.</p>
+        <InputFile id="trainer-files" OnChange="OnFilesChosen" multiple />
+        <p class="hint">On a tablet, tap the file-selection control above to browse your files.</p>
+    </section>
 
     @if (message is not null)
     {
@@ -31,18 +33,14 @@
     @if (teams.Count > 0)
     {
         <h2>Trainer teams (@teams.Count)</h2>
+        <input type="search" placeholder="Filter trainer or Pokémon"
+               @bind="filter" @bind:event="oninput" />
 
-        <input type="search"
-               placeholder="Filter trainer or Pokémon"
-               @bind="filter"
-               @bind:event="oninput" />
-
-        <div>
+        <div class="team-list">
             @foreach (var t in VisibleTeams)
             {
                 var index = teams.IndexOf(t);
-                <button @key="t"
-                        @onclick="() => SelectTeam(index)">
+                <button @key="t" @onclick="() => SelectTeam(index)">
                     @(selectedTeamIndex == index ? "▶ " : "")
                     @t.Name (@t.Team.Length Pokémon)
                 </button>
@@ -53,13 +51,11 @@
         {
             <h2>Selected trainer</h2>
             <p>@SelectedTeam.Name</p>
-
-            <div>
+            <div class="pokemon-list">
                 @for (int i = 0; i < SelectedTeam.Team.Length; i++)
                 {
                     var pokemonIndex = i;
                     var p = SelectedTeam.Team[i];
-
                     <button @key="pokemonIndex"
                             @onclick="() => SelectPokemon(pokemonIndex)">
                         @(selectedPokemonIndex == pokemonIndex ? "▶ " : "")
@@ -71,56 +67,49 @@
 
         @if (SelectedPokemon is not null)
         {
-            <h2>Edit Pokémon</h2>
+            <section class="editor">
+                <h2>Edit Pokémon</h2>
+                <p>Current species: <strong>@SpeciesName(SelectedPokemon.Species)</strong></p>
 
-            <p>
-                Current species: <strong>@SpeciesName(SelectedPokemon.Species)</strong>
-            </p>
+                <label for="species-id">Species ID</label>
+                <input id="species-id" type="number" min="0" max="65535"
+                       @bind="SelectedPokemon.Species" />
 
-            <label>Species ID</label>
-            <input type="number" min="0" max="65535"
-                   @bind="SelectedPokemon.Species" />
+                <label for="pokemon-level">Level</label>
+                <input id="pokemon-level" type="number" min="1" max="100"
+                       @bind="SelectedPokemon.Level" />
 
-            <label>Level</label>
-            <input type="number" min="1" max="100"
-                   @bind="SelectedPokemon.Level" />
+                <label for="held-item">Held item ID (0 means no item)</label>
+                <input id="held-item" type="number" min="0" max="65535"
+                       @bind="SelectedPokemon.HeldItem" />
 
-            <label>Held item ID (0 means no item)</label>
-            <input type="number" min="0" max="65535"
-                   @bind="SelectedPokemon.HeldItem" />
+                <h3>Move IDs</h3>
+                <label for="move-1">Move 1</label>
+                <input id="move-1" type="number" min="0" max="65535"
+                       @bind="SelectedPokemon.Move1" />
 
-            <h3>Move IDs</h3>
-            <label>Move 1</label>
-            <input type="number" min="0" max="65535"
-                   @bind="SelectedPokemon.Move1" />
+                <label for="move-2">Move 2</label>
+                <input id="move-2" type="number" min="0" max="65535"
+                       @bind="SelectedPokemon.Move2" />
 
-            <label>Move 2</label>
-            <input type="number" min="0" max="65535"
-                   @bind="SelectedPokemon.Move2" />
+                <label for="move-3">Move 3</label>
+                <input id="move-3" type="number" min="0" max="65535"
+                       @bind="SelectedPokemon.Move3" />
 
-            <label>Move 3</label>
-            <input type="number" min="0" max="65535"
-                   @bind="SelectedPokemon.Move3" />
+                <label for="move-4">Move 4</label>
+                <input id="move-4" type="number" min="0" max="65535"
+                       @bind="SelectedPokemon.Move4" />
 
-            <label>Move 4</label>
-            <input type="number" min="0" max="65535"
-                   @bind="SelectedPokemon.Move4" />
-
-            <p>
-                Changes apply to the selected Pokémon in memory.
-                Other Pokémon fields are preserved when the team is written.
-            </p>
+                <p>Changes apply to the selected Pokémon in memory. Other Pokémon fields are preserved when the team is written.</p>
+            </section>
         }
 
         <hr />
-
-        <h2>Export patch</h2>
-        <p>
-            Only changed team files are included. The ZIP contains the
-            selected game's Atmosphère mod-folder path.
-        </p>
-
-        <button @onclick="ExportPatch">Export changed teams</button>
+        <section>
+            <h2>Export patch</h2>
+            <p>Only changed team files are included. The ZIP contains the selected game's Atmosphère mod-folder path.</p>
+            <button class="primary-button" @onclick="ExportPatch">Export changed teams</button>
+        </section>
     }
 </main>
 
@@ -144,7 +133,7 @@
     private string filter = "";
     private string edition = "Sword";
     private int selectedTeamIndex = -1;
-    private int selectedPokemonIndex = 0;
+    private int selectedPokemonIndex;
 
     private TeamFile? SelectedTeam =>
         selectedTeamIndex >= 0 && selectedTeamIndex < teams.Count
@@ -163,9 +152,8 @@
             ? teams
             : teams.Where(t =>
                 t.Name.Contains(filter.Trim(), StringComparison.OrdinalIgnoreCase) ||
-                t.Team.Any(p =>
-                    SpeciesName(p.Species).Contains(
-                        filter.Trim(), StringComparison.OrdinalIgnoreCase)));
+                t.Team.Any(p => SpeciesName(p.Species).Contains(
+                    filter.Trim(), StringComparison.OrdinalIgnoreCase)));
 
     private static string SpeciesName(int id) => ((Species)id).ToString();
 
@@ -175,10 +163,7 @@
         selectedPokemonIndex = 0;
     }
 
-    private void SelectPokemon(int index)
-    {
-        selectedPokemonIndex = index;
-    }
+    private void SelectPokemon(int index) => selectedPokemonIndex = index;
 
     private async Task OnFilesChosen(InputFileChangeEventArgs e)
     {
@@ -192,19 +177,29 @@
         {
             var raw = new List<(string Name, byte[] Data)>();
 
-            foreach (var f in e.GetMultipleFiles(2000))
+            foreach (var file in e.GetMultipleFiles(2000))
             {
-                await using var stream = f.OpenReadStream(300_000_000);
-                using var ms = new MemoryStream();
-                await stream.CopyToAsync(ms);
+                await using var stream = file.OpenReadStream(300_000_000);
+                using var memory = new MemoryStream();
+                await stream.CopyToAsync(memory);
 
-                if (f.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                if (file.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
-                    ms.Position = 0;
-                    using var zip = new ZipArchive(ms, ZipArchiveMode.Read);
+                    memory.Position = 0;
+                    using var zip = new ZipArchive(memory, ZipArchiveMode.Read);
 
-                    foreach (var entry in zip.Entries.Where(z => z.Length > 0))
+                    foreach (var entry in zip.Entries.Where(z =>
+                                 z.Length > 0 && !string.IsNullOrEmpty(z.Name)))
                     {
+                        // Prefer files from the known trainer_poke folder when
+                        // the ZIP contains a full extracted game directory.
+                        var normalizedPath = entry.FullName.Replace('\\', '/');
+                        bool looksLikeTrainerFile =
+                            normalizedPath.Contains("/trainer_poke/", StringComparison.OrdinalIgnoreCase) ||
+                            normalizedPath.StartsWith("trainer_poke/", StringComparison.OrdinalIgnoreCase);
+
+                        // Keep other entries available too: some archives contain
+                        // only the selected trainer files without their folder path.
                         using var entryStream = entry.Open();
                         using var entryMemory = new MemoryStream();
                         await entryStream.CopyToAsync(entryMemory);
@@ -213,12 +208,11 @@
                 }
                 else
                 {
-                    raw.Add((f.Name, ms.ToArray()));
+                    raw.Add((file.Name, memory.ToArray()));
                 }
             }
 
-            foreach (var (name, data) in raw.OrderBy(
-                z => z.Name, StringComparer.Ordinal))
+            foreach (var (name, data) in raw.OrderBy(z => z.Name, StringComparer.Ordinal))
             {
                 if (data.Length == 0 || data.Length % TrainerPoke8.SIZE != 0)
                 {
@@ -261,13 +255,13 @@
 
             var changed = new List<(string Name, byte[] Data)>();
 
-            foreach (var t in teams)
+            foreach (var teamFile in teams)
             {
-                var writableTeam = t.Team.Cast<TrainerPoke>().ToList();
+                var writableTeam = teamFile.Team.Cast<TrainerPoke>().ToList();
                 byte[] output = TrainerPoke8.WriteTeam(writableTeam, null!);
 
-                if (!output.SequenceEqual(t.OriginalData))
-                    changed.Add((Path.GetFileName(t.Name), output));
+                if (!output.SequenceEqual(teamFile.OriginalData))
+                    changed.Add((Path.GetFileName(teamFile.Name), output));
             }
 
             if (changed.Count == 0)
@@ -277,9 +271,7 @@
             }
 
             using var outputMemory = new MemoryStream();
-
-            using (var zip = new ZipArchive(
-                outputMemory, ZipArchiveMode.Create, leaveOpen: true))
+            using (var zip = new ZipArchive(outputMemory, ZipArchiveMode.Create, leaveOpen: true))
             {
                 foreach (var file in changed)
                 {
